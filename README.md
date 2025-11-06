@@ -353,7 +353,7 @@ Now, evaluate the log loss, accuracy, precision, and recall. This code is mostly
 
 ```python
 # Replace None with appropriate code
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, log_loss
 
 preds = final_model.predict(X_test_scaled)
 probs = final_model.predict_proba(X_test_scaled)
