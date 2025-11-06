@@ -119,15 +119,28 @@ Include the relevant imports as you go.
 
 
 ```python
-# Your code here
+# Import the relevant function
+from sklearn.model_selection import train_test_split
+
+# Split df into X and y
+X = df.drop("Cover_Type", axis=1)
+y = df["Cover_Type"]
+
+# Perform train-test split with random_state=42 and stratify=y
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, stratify=y)
 ```
 
 Now, instantiate a `StandardScaler`, fit it on `X_train`, and create new variables `X_train_scaled` and `X_test_scaled` containing values transformed with the scaler.
 
 
 ```python
-# Your code here
-```
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+scaler.fit(X_train)
+
+X_train_scaled = scaler.transform(X_train)
+X_test_scaled = scaler.transform(X_test)```
 
 The following code checks that everything is set up correctly:
 
@@ -165,14 +178,14 @@ Your code might take a minute or more to run.
 # Replace None with appropriate code
 
 # Relevant imports
-None
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import cross_val_score
 
 # Creating the model
-knn_baseline_model = None
+knn_baseline_model = KNeighborsClassifier()
 
 # Perform cross-validation
-knn_baseline_log_loss = None
-
+knn_baseline_log_loss = -cross_val_score(knn_baseline_model, X_train_scaled, y_train, scoring="neg_log_loss").mean()
 knn_baseline_log_loss
 ```
 
@@ -184,7 +197,9 @@ Is this model better? Compare it in terms of metrics and speed.
 ```python
 # Replace None with appropriate text
 """
-None
+•kNN achieved a slightly better log loss than the tuned logistic regression model.
+•kNN was much slower, while logistic regression ran faster and scaled better.
+•Choose logistic regression for speed; choose kNN if accuracy is the top priority.
 """
 ```
 
@@ -194,19 +209,37 @@ Build and evaluate at least two more kNN models to find the best one. Explain wh
 
 
 ```python
-# Your code here (add more cells as needed)
+The default setting of 5 neighbors may be causing overfitting given the large dataset size. To address this, I will increase the number of neighbors tenfold and check whether performance improves.    
 ```
 
 
 ```python
-# Your code here (add more cells as needed)
+"""
+It looks good. I'll keep the same number of neighbors and change the distance metric from Euclidean to Manhattan to see how it performs.
+"""
+
+knn_third_model = KNeighborsClassifier(n_neighbors=50, metric="manhattan")
+
+knn_third_log_loss = -cross_val_score(knn_third_model, X_train_scaled, y_train, scoring="neg_log_loss").mean()
+knn_third_log_loss
 ```
 
 
 ```python
-# Your code here (add more cells as needed)
-```
+"""
+That's a small improvement, but the gain is much smaller this time. I’ll try increasing the number of neighbors again to see if it improves performance further.
+"""
 
+knn_fourth_model = KNeighborsClassifier(n_neighbors=75, metric="manhattan")
+
+knn_fourth_log_loss = -cross_val_score(knn_fourth_model, X_train_scaled, y_train, scoring="neg_log_loss").mean()
+knn_fourth_log_loss
+```
+```python
+"""
+Although this result is still better than the default of 5 neighbors, it performs worse than when I used 50 neighbors. If I continued experimenting, I would explore values between 5 and 50 to find the optimal setting. For now, I'll stop here and conclude that knn_third_model is the best-performing model, with a log loss of approximately 0.0859.
+"""
+```
 ## 4. Build a Baseline Decision Tree Model
 
 Now that you have chosen your best kNN model, start investigating decision tree models. First, build and evaluate a baseline decision tree model, using default hyperparameters (with the exception of `random_state=42` for reproducibility).
@@ -215,8 +248,12 @@ Now that you have chosen your best kNN model, start investigating decision tree 
 
 
 ```python
-# Your code here
-```
+from sklearn.tree import DecisionTreeClassifier
+
+dtree_baseline_model = DecisionTreeClassifier(random_state=42)
+
+dtree_baseline_log_loss = -cross_val_score(dtree_baseline_model, X_train, y_train, scoring="neg_log_loss").mean()
+dtree_baseline_log_loss```
 
 Interpret this score. How does this compare to the log loss from our best logistic regression and best kNN models? Any guesses about why?
 
@@ -224,7 +261,7 @@ Interpret this score. How does this compare to the log loss from our best logist
 ```python
 # Replace None with appropriate text
 """
-None
+This performance is worse than both the logistic regression and kNN models. It is likely that the decision tree is heavily overfitting, since it has not been pruned or regularized in any way. Decision trees can easily memorize the training data and make overly confident predictions, especially when no limits are placed on tree depth or complexity. As a result, they may perform well on the training set but generalize poorly to unseen data, which leads to a much higher log loss in cross-validation.
 """
 ```
 
@@ -234,33 +271,81 @@ Build and evaluate at least two more decision tree models to find the best one. 
 
 
 ```python
-# Your code here (add more cells as needed)
+To reduce overfitting in the decision tree, I will adjust key hyperparameters that control model complexity. I will begin by increasing min_samples_leaf, which ensures each leaf has more samples before making a split. This restricts the tree from growing too deep and helps improve generalization. Conceptually, this is similar to increasing
+the number of neighbors in kNN, since both approaches require more evidence before making a prediction, although they use different mechanisms to determine similarity.
+"""
+
+dtree_second_model = DecisionTreeClassifier(random_state=42, min_samples_leaf=10)
+
+dtree_second_log_loss = -cross_val_score(dtree_second_model, X_train, y_train, scoring="neg_log_loss").mean()
+dtree_second_log_loss
 ```
+
+```python
+"""
+Great, meaning, raising min_samples_leaf from 1 to 10 improved generalization. Let me try pushing this value even higher to see if performance improves further.
+"""
+
+dtree_third_model = DecisionTreeClassifier(random_state=42, min_samples_leaf=100)
+
+dtree_third_log_loss = -cross_val_score(dtree_third_model, X_train, y_train, scoring="neg_log_loss").mean()
+dtree_third_log_loss```
 
 
 ```python
-# Your code here (add more cells as needed)
+"""
+Now my scores are in the same range as the best logistic regression model and the baseline kNN model. However, I noticed that this dataset is very imbalanced, and I haven’t accounted for that yet. So next, I will keep the same min_samples_leaf value but also apply class weighting to handle the imbalance.
+"""
+
+dtree_fourth_model = DecisionTreeClassifier(random_state=42, min_samples_leaf=100, class_weight="balanced")
+
+dtree_fourth_log_loss = -cross_val_score(dtree_fourth_model, X_train, y_train, scoring="neg_log_loss").mean()
+dtree_fourth_log_loss
 ```
-
-
 ```python
-# Your code here (add more cells as needed)
-```
+"""
+That didn't work as expected — it looks like the model may have over-adjusted when I tried to balance the classes, 
+so I’ll skip the class_weight parameter for now. I also notice that this dataset has many features, so next I’ll try limiting the number of features the tree can consider at each split, while keeping min_samples_leaf the same.
+"""
 
+dtree_fifth_model = DecisionTreeClassifier(random_state=42, min_samples_leaf=100, max_features="sqrt")
+
+dtree_fifth_log_loss = -cross_val_score(dtree_fifth_model, X_train, y_train, scoring="neg_log_loss").mean()
+dtree_fifth_log_loss
+```
+```python
+"""
+This still isn’t performing better than my dtree_third_model. I’ll test one more value for min_samples_leaf to see if it improves the results.
+"""
+
+dtree_sixth_model = DecisionTreeClassifier(random_state=42, min_samples_leaf=75)
+
+dtree_sixth_log_loss = -cross_val_score(dtree_sixth_model, X_train, y_train, scoring="neg_log_loss").mean()
+dtree_sixth_log_loss
+```
+```python
+"""
+That result looks promising. In a more detailed workflow I might run a proper grid search, but for now, I’ll treat the sixth model as the best-performing decision tree model.
+"""
+```
 ## 6. Choose and Evaluate an Overall Best Model
 
 Which model had the best performance? What type of model was it?
 
 Instantiate a variable `final_model` using your best model with the best hyperparameters.
 
+```python
+"""
+This model runs significantly slower than the best logistic regression and decision tree models, but in this case the performance gain seems worth it. However, depending on the business objectives, the extra time may not always be justified.
+"""
+```
 
 ```python
-# Replace None with appropriate code
-final_model = None
+final_model = KNeighborsClassifier(n_neighbors=50, metric="manhattan")
 
 # Fit the model on the full training data
 # (scaled or unscaled depending on the model)
-None
+final_model.fit(X_train_scaled, y_train)
 ```
 
 Now, evaluate the log loss, accuracy, precision, and recall. This code is mostly filled in for you, but you need to replace `None` with either `X_test` or `X_test_scaled` depending on the model you chose.
@@ -270,8 +355,8 @@ Now, evaluate the log loss, accuracy, precision, and recall. This code is mostly
 # Replace None with appropriate code
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 
-preds = final_model.predict(None)
-probs = final_model.predict_proba(None)
+preds = final_model.predict(X_test_scaled)
+probs = final_model.predict_proba(X_test_scaled)
 
 print("log loss: ", log_loss(y_test, probs))
 print("accuracy: ", accuracy_score(y_test, preds))
@@ -285,7 +370,9 @@ Interpret your model performance. How would it perform on different kinds of tas
 ```python
 # Replace None with appropriate text
 """
-None
+This model achieves 97% accuracy, outperforming a simple baseline model (~92%). Its precision for class 1 is about 89%, noticeably higher than logistic regression (~67%). 
+Recall also improves to around 69% versus 48% for logistic regression, though it's still not ideal. If avoiding false negatives (missing real class 1 areas) is a priority, adjusting the decision threshold may be necessary.
+
 """
 ```
 
